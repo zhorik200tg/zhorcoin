@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Кошелёк ZhorCoin</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 10px;
+      background-color: #f4f4f4;
+      margin: 0;
+    }
+
+    #app {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    h1, h2, h3 {
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    .tabs {
+      display: flex;
+      justify-content: space-around;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 12px;
+      background: #ddd;
+      cursor: pointer;
+      text-align: center;
+      border: none;
+      outline: none;
+      transition: all 0.3s ease;
+      font-weight: bold;
+    }
+
+    .tab-button.active {
+      background-color: #4caf50;
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease-in-out;
+      padding: 15px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #auth-error {
+      color: red;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    #user-info {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    #user-id {
+      font-size: 0.9em;
+      color: #555;
+    }
+
+    .transaction {
+      padding: 10px;
+      margin: 5px 0;
+      background-color: #f9f9f9;
+      border-left: 4px solid #4caf50;
+      font-size: 14px;
+    }
+
+    #chatBox {
+      height: 150px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    /* Мобильная версия */
+    @media (max-width: 600px) {
+      #app {
+        margin: 0 10px;
+      }
+
+      .tabs {
+        font-size: 14px;
+      }
+
+      .tab-button {
+        padding: 10px;
+      }
+
+      input, button {
+        font-size: 14px;
+      }
+
+      canvas {
+        width: 100% !important;
+        height: 150px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Форма регистрации / входа -->
+    <div id="auth-section">
+      <h2>Войти или зарегистрироваться</h2>
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Пароль" />
+      <button onclick="register()">Зарегистрироваться</button>
+      <button onclick="login()">Войти</button>
+      <p id="auth-error"></p>
+    </div>
+
+    <!-- Основной интерфейс кошелька -->
+    <div id="wallet-section" class="hidden">
+      <h2>Добро пожаловать!</h2>
+
+      <!-- Профиль -->
+      <h3>Ваш профиль</h3>
+      <div id="user-profile">
+        <p><strong>Email:</strong> <span id="profile-email"></span></p>
+        <p><strong>ID:</strong> <span id="profile-id"></span></p>
+        <p><strong>Баланс:</strong> <span id="profile-balance">0</span> ZC</p>
+        <p><strong>UID (отладка):</strong> <span id="profile-uid"></span></p>
+        <p><strong>Количество переводов:</strong> <span id="total-transfers">0</span></p>
+        <button onclick="logout()">Выйти из аккаунта</button>
+      </div>
+
+      <!-- Навигация по вкладкам -->
+      <div class="tabs">
+        <button class="tab-button active" onclick="openTab(event, 'transfer')">Перевод</button>
+        <button class="tab-button" onclick="openTab(event, 'chat')">Чат</button>
+      </div>
+
+      <!-- Вкладка Перевод -->
+      <div id="transfer" class="tab-content active">
+        <p><strong>Баланс:</strong> <span id="balance">0</span> ZC</p>
+
+        <!-- Поиск по ID -->
+        <input type="number" id="searchUserId" placeholder="Поиск пользователя по ID" />
+        <button onclick="searchUserById()">Найти</button>
+        <p id="search-result"></p>
+
+        <!-- Перевод по ID -->
+        <input type="number" id="transferUserId" placeholder="ID получателя" />
+        <input type="number" id="transferAmount" placeholder="Сумма ZC" />
+        <button onclick="transferZC()">Перевести</button>
+
+        <!-- История транзакций -->
+        <h3>История транзакций</h3>
+        <div id="transactions"></div>
+
+        <!-- Диаграмма -->
+        <h3>Активность</h3>
+        <canvas id="activityChart" width="400" height="150"></canvas>
+      </div>
+
+      <!-- Вкладка Чат -->
+      <div id="chat" class="tab-content">
+        <!-- Чат -->
+        <h3>Чат</h3>
+        <input type="number" id="chatUserId" placeholder="ID собеседника" />
+        <input type="text" id="chatMessage" placeholder="Сообщение" />
+        <button onclick="sendMessage()">Отправить</button>
+        <div id="chatBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK + Chart.js -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js "></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js "></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js "></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js "></script>
+
+  <script>
+    // === Firebase Config (ваш) ===
+    const firebaseConfig = {
+      apiKey: "AIzaSyBHrvK31pcfTCqFDR5kCG_e0xwgg7R9WR0",
+      authDomain: "zhorcoin-wallet.firebaseapp.com",
+      projectId: "zhorcoin-wallet",
+      storageBucket: "zhorcoin-wallet.firebasestorage.app",
+      messagingSenderId: "706905750801",
+      appId: "1:706905750801:web:157a35155de58ee9f860b0",
+      measurementId: "G-HRHE4LQCRJ"
+    };
+
+    // Инициализация Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // DOM элементы
+    const authSection = document.getElementById('auth-section');
+    const walletSection = document.getElementById('wallet-section');
+    const balanceSpan = document.getElementById('balance');
+    const searchResultP = document.getElementById('search-result');
+    const transactionsDiv = document.getElementById('transactions');
+    const chatBox = document.getElementById('chatBox');
+
+    let currentUser = null;
+
+    // Генерация 8-значного ID
+    function generate8DigitId() {
+      return Math.floor(10000000 + Math.random() * 90000000);
+    }
+
+    // Регистрация
+    function register() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        errorP.textContent = 'Введите email и пароль';
+        return;
+      }
+
+      auth.createUserWithEmailAndPassword(email, password)
+        .catch(error => {
+          errorP.textContent = error.message;
+        });
+    }
+
+    // Вход
+    function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        errorP.textContent = 'Введите email и пароль';
+        return;
+      }
+
+      auth.signInWithEmailAndPassword(email, password)
+        .catch(error => {
+          errorP.textContent = error.message;
+        });
+    }
+
+    // Слушаем изменения авторизации
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+
+        db.collection('users').doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('profile-email').textContent = user.email;
+            document.getElementById('profile-id').textContent = data.userId || 'Не задан';
+            document.getElementById('profile-balance').textContent = (data.balance !== undefined ? data.balance : 0).toFixed(2);
+            document.getElementById('balance').textContent = (data.balance !== undefined ? data.balance : 0).toFixed(2);
+            document.getElementById('profile-uid').textContent = user.uid;
+            document.getElementById('total-transfers').textContent = data.transactions?.length || 0;
+
+            loadTransactions();
+          } else {
+            console.warn("Профиль не найден:", user.uid);
+            const newUserId = generate8DigitId();
+            db.collection('users').doc(user.uid).set({
+              balance: 100,
+              userId: newUserId,
+              transactions: []
+            });
+
+            document.getElementById('profile-email').textContent = user.email;
+            document.getElementById('profile-id').textContent = newUserId;
+            document.getElementById('profile-balance').textContent = '100.00';
+            document.getElementById('balance').textContent = '100.00';
+            document.getElementById('profile-uid').textContent = user.uid;
+            document.getElementById('total-transfers').textContent = '0';
+            transactionsDiv.innerHTML = '';
+          }
+        }).catch(err => {
+          console.error("Ошибка загрузки профиля:", err);
+          alert("Ошибка подключения к базе данных");
+        });
+
+        authSection.classList.add('hidden');
+        walletSection.classList.remove('hidden');
+      } else {
+        currentUser = null;
+        authSection.classList.remove('hidden');
+        walletSection.classList.add('hidden');
+
+        document.getElementById('profile-email').textContent = '';
+        document.getElementById('profile-id').textContent = '';
+        document.getElementById('profile-balance').textContent = '0.00';
+        document.getElementById('balance').textContent = '0.00';
+        document.getElementById('profile-uid').textContent = '';
+        document.getElementById('total-transfers').textContent = '0';
+        transactionsDiv.innerHTML = '';
+        searchResultP.textContent = '';
+        chatBox.innerHTML = '';
+      }
+    });
+
+    // Выход
+    function logout() {
+      auth.signOut();
+    }
+
+    // Переключение вкладок
+    function openTab(evt, tabName) {
+      const tabs = document.getElementsByClassName("tab-content");
+      const tabButtons = document.getElementsByClassName("tab-button");
+
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove("active");
+        tabButtons[i].classList.remove("active");
+      }
+
+      document.getElementById(tabName).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
+
+    // Поиск пользователя по ID
+    function searchUserById() {
+      const targetUserId = parseInt(document.getElementById('searchUserId').value);
+      if (!targetUserId || isNaN(targetUserId)) {
+        searchResultP.textContent = 'Введите корректный ID';
+        return;
+      }
+
+      db.collection('users').where('userId', '==', targetUserId).get()
+        .then(querySnapshot => {
+          if (!querySnapshot.empty) {
+            searchResultP.textContent = 'Пользователь найден!';
+          } else {
+            searchResultP.textContent = 'Пользователь не найден.';
+          }
+        });
+    }
+
+    // Перевод средств
+    function transferZC() {
+      const targetUserId = parseInt(document.getElementById('transferUserId').value);
+      const amount = parseFloat(document.getElementById('transferAmount').value);
+
+      if (!targetUserId || isNaN(targetUserId) || amount <= 0 || isNaN(amount)) {
+        alert('Введите корректные данные');
+        return;
+      }
+
+      const currentBalance = parseFloat(balanceSpan.textContent);
+
+      if (currentBalance < amount) {
+        alert('Недостаточно средств!');
+        return;
+      }
+
+      const senderUid = currentUser.uid;
+
+      db.collection('users').where('userId', '==', targetUserId).get()
+        .then(querySnapshot => {
+          if (querySnapshot.empty) {
+            alert('Пользователь не найден');
+            return;
+          }
+
+          const receiverDoc = querySnapshot.docs[0];
+          const receiverUid = receiverDoc.id;
+
+          db.collection('users').doc(senderUid).update({
+            balance: currentBalance - amount
+          });
+
+          db.collection('users').doc(receiverUid).get().then(doc => {
+            const receiverBalance = doc.data().balance;
+            db.collection('users').doc(receiverUid).update({
+              balance: receiverBalance + amount
+            });
+          });
+
+          const transaction = {
+            timestamp: new Date(),
+            from: senderUid,
+            to: receiverUid,
+            amount: amount,
+            type: 'transfer'
+          };
+
+          db.collection('users').doc(senderUid).update({
+            transactions: firebase.firestore.FieldValue.arrayUnion(transaction)
+          });
+
+          db.collection('users').doc(receiverUid).update({
+            transactions: firebase.firestore.FieldValue.arrayUnion({
+              ...transaction,
+              to: currentUser.uid,
+              from: senderUid
+            })
+          });
+
+          balanceSpan.textContent = (currentBalance - amount).toFixed(2);
+          loadTransactions();
+        });
+    }
+
+    // Загрузка истории транзакций
+    function loadTransactions() {
+      transactionsDiv.innerHTML = '';
+      const uid = currentUser.uid;
+
+      db.collection('users').doc(uid).get().then(doc => {
+        const transactions = doc.data().transactions || [];
+
+        transactions.sort((a, b) => b.timestamp.seconds - a.timestamp.seconds);
+
+        transactions.forEach(t => {
+          const isOutgoing = t.from === uid;
+          const partnerQuery = isOutgoing ? db.collection('users').doc(t.to) : db.collection('users').doc(t.from);
+
+          partnerQuery.get().then(partnerDoc => {
+            const partnerData = partnerDoc.data();
+            const partnerId = partnerData.userId;
+
+            const item = document.createElement('div');
+            item.className = 'transaction';
+
+            const date = new Date(t.timestamp.seconds * 1000).toLocaleString();
+            const amount = `${t.amount} ZC`;
+
+            item.textContent = `${isOutgoing ? '→ Отправлено ' : '← Получено '} ${amount} | ID: ${partnerId} | ${date}`;
+            transactionsDiv.appendChild(item);
+          });
+        });
+
+        updateChart(transactions);
+      });
+    }
+
+    // Диаграмма активности
+    let chartInstance = null;
+
+    function updateChart(transactions) {
+      const data = {
+        labels: [],
+        datasets: [
+          {
+            label: 'Исходящие',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            borderColor: 'rgba(255,99,132,1)',
+            data: []
+          },
+          {
+            label: 'Входящие',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            data: []
+          }
+        ]
+      };
+
+      const today = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const key = date.toISOString().split('T')[0];
+
+        data.labels.push(key);
+
+        const outgoing = transactions.filter(t =>
+          t.from === currentUser.uid &&
+          new Date(t.timestamp.seconds * 1000).toISOString().split('T')[0] === key
+        ).reduce((sum, t) => sum + t.amount, 0);
+
+        const incoming = transactions.filter(t =>
+          t.to === currentUser.uid &&
+          new Date(t.timestamp.seconds * 1000).toISOString().split('T')[0] === key
+        ).reduce((sum, t) => sum + t.amount, 0);
+
+        data.datasets[0].data.push(outgoing);
+        data.datasets[1].data.push(incoming);
+      }
+
+      if (chartInstance) {
+        chartInstance.data = data;
+        chartInstance.update();
+      } else {
+        chartInstance = new Chart(document.getElementById('activityChart'), {
+          type: 'line',
+          data: data,
+          options: {
+            responsive: true,
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }
+        });
+      }
+    }
+
+    // Отправка сообщений
+    function sendMessage() {
+      const chatUserId = parseInt(document.getElementById('chatUserId').value);
+      const messageText = document.getElementById('chatMessage').value.trim();
+
+      if (!chatUserId || !messageText) return;
+
+      const senderId = currentUser.uid;
+      const partnerQuery = db.collection('users').where('userId', '==', chatUserId);
+
+      partnerQuery.get().then(querySnapshot => {
+        if (querySnapshot.empty) {
+          alert("Пользователь не найден");
+          return;
+        }
+
+        const receiverId = querySnapshot.docs[0].id;
+        const chatId = [senderId, receiverId].sort().join('_');
+
+        db.collection('chats').doc(chatId).collection('messages').add({
+          from: senderId,
+          text: messageText,
+          timestamp: new Date()
+        });
+
+        document.getElementById('chatMessage').value = '';
+        loadChat(chatId);
+      });
+    }
+
+    // Загрузка чата
+    function loadChat(chatId) {
+      chatBox.innerHTML = '';
+
+      db.collection('chats').doc(chatId).collection('messages')
+        .orderBy('timestamp')
+        .onSnapshot(snapshot => {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'added') {
+              const msg = change.doc.data();
+              const div = document.createElement('div');
+              div.style.margin = '5px 0';
+              div.innerHTML = `<strong>${msg.from === currentUser.uid ? 'Вы' : 'Собеседник'}:</strong> ${msg.text}`;
+              chatBox.appendChild(div);
+              chatBox.scrollTop = chatBox.scrollHeight;
+            }
+          });
+        });
+    }
+  </script>
+</body>
+</html>
